@@ -12,6 +12,8 @@ trait BasicParsers extends JavaTokenParsers {
 
     def alpha: String = "[A-z]"
     def digit: Parser[String] = "[0-9]".r ^^ (i => i)
+
+    // Todo: Fix bug where using digit won't work. Not sure about all cases, but using "test0" failed.
     def identifier: Parser[String] = (alpha + "(" + alpha + "|" + digit + "|_)*").r ^^ (i => i)
 
     def typeParser: Parser[Type] = (
@@ -26,13 +28,14 @@ trait BasicParsers extends JavaTokenParsers {
 }
 
 trait ExpressionParser extends BasicParsers {
-    def aggregator(r:  Expression ~ List[Expression => Expression]): Expression = { r match { case a~b => (a /: b)((acc,f) => f(acc)) } }
-    def expressionParser: Parser[Expression] = addTerm ~ rep(boolExpParser) ^^ aggregator
-    def addTerm: Parser[Expression] =  mulTerm ~ rep(addExpParser) ^^ aggregator
-    def mulTerm  : Parser[Expression] = factor ~ rep(mulExpParser) ^^ aggregator
+    def aggregator(r: Expression ~ List[Expression => Expression]): Expression = { r match { case a~b => (a /: b)((acc,f) => f(acc)) } }
+    def expressionParser: Parser[Expression] = addTerm ~ rep(relExpParser) ^^ aggregator
+    def addTerm: Parser[Expression] = mulTerm ~ rep(addExpParser) ^^ aggregator
+    def mulTerm: Parser[Expression] = fieldAccessTerm ~ rep(mulExpParser) ^^ aggregator
+    def fieldAccessTerm: Parser[Expression] = factor ~ rep(fieldAccessExpParser) ^^ aggregator
     def factor: Parser[Expression] = expValueParser | "(" ~> expressionParser <~ ")" ^^ Brackets
 
-    def boolExpParser: Parser[Expression => Expression] = (
+    def relExpParser: Parser[Expression => Expression] = (
         "=" ~ addTerm ^^ { case _ ~ b => EQExpression(_, b) }
     |   "#" ~ addTerm ^^ { case _ ~ b => NEQExpression(_, b) }
     |   "<=" ~ addTerm ^^ { case _ ~ b => LTEExpression(_, b) }
@@ -46,12 +49,16 @@ trait ExpressionParser extends BasicParsers {
     |   "-" ~ mulTerm ^^ { case _ ~ b => SubExpression(_, b) }
     |   "||" ~ mulTerm ^^ { case _ ~ b => OrExpression(_, b) }
     )
-    
+
     def mulExpParser: Parser[Expression => Expression] = (
-        "*" ~ factor ^^ { case _ ~ b => MultExpression(_, b) }
-    |   "/" ~ factor ^^ { case _ ~ b => DivExpression(_, b) }
-    |   "&&" ~ factor ^^ { case _ ~ b => AndExpression(_, b) }
+        "*" ~ fieldAccessTerm ^^ { case _ ~ b => MultExpression(_, b) }
+    |   "/" ~ fieldAccessTerm ^^ { case _ ~ b => DivExpression(_, b) }
+    |   "&&" ~ fieldAccessTerm ^^ { case _ ~ b => AndExpression(_, b) }
     )
+
+    // TODO: Fix bug where using '.' won't work. Temporarily using '^' instead... Don't forget to change test case!
+    def fieldAccessExpParser: Parser[Expression => Expression] =
+        '^' ~ identifier ^^ { case _ ~ b => FieldAccessExpression(_, b) }
 
     def expValueParser: Parser[Expression] = (
         int

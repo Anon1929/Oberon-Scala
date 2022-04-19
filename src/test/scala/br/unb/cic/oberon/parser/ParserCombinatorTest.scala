@@ -68,7 +68,6 @@ class ParserCombinatorTestSuite extends AnyFunSuite with Oberon2ScalaParser {
 
         var exp1 = IntValue(16)
         var exp2 = RealValue(-35.2)
-        println(parseAbs(parse(expressionParser, "16 * -35.2")))
         assert(MultExpression(exp1, exp2) == parseAbs(parse(expressionParser, "16 * -35.2")))
         assert(DivExpression(exp1, exp2) == parseAbs(parse(expressionParser, "16 / -35.2")))
         assert(AndExpression(exp1, exp2) == parseAbs(parse(expressionParser, "16 && -35.2")))
@@ -80,6 +79,20 @@ class ParserCombinatorTestSuite extends AnyFunSuite with Oberon2ScalaParser {
     test("Testing BoolExpParser") {
         assert(EQExpression(AddExpression(IntValue(25), IntValue(12)), IntValue(5)) == parseAbs(parse(expressionParser, "25 + 12 = 5")))
         assert(EQExpression(AddExpression(IntValue(25), MultExpression(IntValue(12), IntValue(3))), IntValue(5)) == parseAbs(parse(expressionParser, "25 + 12 * 3 = 5")))
-        println(parseAbs(parse(expressionParser, "25 + 3 * 3 - 6 / 2 <= 13")))
+    }
+
+    test("Testing FieldAccess") {
+        assert(parseAbs(parse(expressionParser, "(1 * 2)^um + (2 + 3)^dois * (3 && 4)^tres = (4 || 5)^quatro")) ==
+            EQExpression(
+                AddExpression(
+                    FieldAccessExpression(Brackets(MultExpression(IntValue(1),IntValue(2))), "um"),
+                    MultExpression(
+                        FieldAccessExpression(Brackets(AddExpression(IntValue(2),IntValue(3))), "dois"),
+                        FieldAccessExpression(Brackets(AndExpression(IntValue(3),IntValue(4))), "tres")
+                    )
+                ),
+                FieldAccessExpression(Brackets(OrExpression(IntValue(4),IntValue(5))), "quatro")
+            )
+        )
     }
 }
